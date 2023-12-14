@@ -17,6 +17,5 @@ def odeint(fn, y0, t):
         k4 = fn(y + h * k3, t)
         y = y + 1.0 / 6.0 * h * (k1 + 2 * k2 + 2 * k3 + k4)
         return (y, t), y
-
     (yf, _), y = jax.lax.scan(rk4, (y0, np.array(t[0])), t)
     return y

@@ -226,9 +226,19 @@ def radial_comoving_distance(cosmo, a, log10_amin=-3, steps=256):
 
         def dchioverdlna(y, x):
             xa = np.exp(x)
+#            print('Interim',dir(dchioverda(cosmo, xa)),xa)
             return dchioverda(cosmo, xa) * xa
-
-        chitab = odeint(dchioverdlna, 0.0, np.log(atab))
+#        print('d something',dchioverdlna)
+#        print('atab',atab)
+#        print('cosmo',cosmo)
+#        print('input shape',np.shape(atab),np.shape(a))
+#        print('c shape',np.shape(cosmo.h))
+        '''
+        PH: New addition, 25 Nov 2023. Replacing the second argument of the following line (previously 0.0) to
+        an array of the same length as the length of the array of hubble parameters provided in cosmo. This
+        allows multiple cosmologies to be passed at one time.
+        '''
+        chitab = odeint(dchioverdlna, np.zeros(np.shape(cosmo.h)), np.log(atab))
         # np.clip(- 3000*np.log(atab), 0, 10000)#odeint(dchioverdlna, 0., np.log(atab), cosmo)
         chitab = chitab[-1] - chitab
 
@@ -291,6 +301,7 @@ def dchioverda(cosmo, a):
 
         \frac{d \chi}{da}(a) = \frac{R_H}{a^2 E(a)}
     """
+#    print('rh',const.rh,'a',a,'Esqr',Esqr(cosmo, a))
     return const.rh / (a**2 * np.sqrt(Esqr(cosmo, a)))
 
 
@@ -326,23 +337,35 @@ def transverse_comoving_distance(cosmo, a):
         \end{matrix}
         \right.
     """
-    index = cosmo.k + 1
+    '''
+    PH:
+    Important Notes on Omega_k:
+    Omega_k is not an integer, but 'k' is. Omega_k and 'k' have opposite signs.
+    Open: k=-1,Omega_k>0
+    Closed: k=1,Omega_k<0.
+    See this webpage: https://ned.ipac.caltech.edu/level5/Carroll/Carroll1.html
+    and less usefully, here: https://en.wikipedia.org/wiki/Friedmann_equations
+    '''
+    index = cosmo.k + 1 
 
-    def open_universe(chi):
+    def open_universe(chi): #k=-1, O_k>0
         return const.rh / cosmo.sqrtk * np.sinh(cosmo.sqrtk * chi / const.rh)
 
     def flat_universe(chi):
         return chi
 
-    def close_universe(chi):
+    def close_universe(chi): #k=+1, O_k<0
         return const.rh / cosmo.sqrtk * np.sin(cosmo.sqrtk * chi / const.rh)
 
     branches = (open_universe, flat_universe, close_universe)
 
     chi = radial_comoving_distance(cosmo, a)
-
+    '''
+    PH: Nov 26 2023: Replacing this, so it can cope with an array of values of cosmo.k:
     return lax.switch(cosmo.k + 1, branches, chi)
-
+    '''
+    #print('func',np.where(cosmo.k==-1,open_universe(chi),np.where(cosmo.k==1,close_universe(chi),flat_universe(chi)))[0:10])
+    return np.where(cosmo.k==-1,open_universe(chi),np.where(cosmo.k==1,close_universe(chi),flat_universe(chi)))
 
 def angular_diameter_distance(cosmo, a):
     r"""Angular diameter distance in [Mpc/h] for a given scale factor.
@@ -365,7 +388,10 @@ def angular_diameter_distance(cosmo, a):
 
         d_A(a) = a f_k(a)
     """
-    return a * transverse_comoving_distance(cosmo, a)
+#    print('SHAPE,cosmo',(a))
+#    print((transverse_comoving_distance(cosmo, a)))
+#    print('shapessss',np.shape(a[...,np.newaxis]),np.shape(np.squeeze(transverse_comoving_distance(cosmo, a),2)))
+    return a[...,np.newaxis]* np.squeeze(transverse_comoving_distance(cosmo, a),2) #Removing an axis
 
 
 def growth_factor(cosmo, a):
