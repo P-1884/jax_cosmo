@@ -237,8 +237,10 @@ def radial_comoving_distance(cosmo, a, log10_amin=-3, steps=256):
         PH: New addition, 25 Nov 2023. Replacing the second argument of the following line (previously 0.0) to
         an array of the same length as the length of the array of hubble parameters provided in cosmo. This
         allows multiple cosmologies to be passed at one time.
+        PH: New addition, 14th Dec 2023. Re-Replacing the second argument with 0.0 (previously np.zeros(np.shape(cosmo.h))), as I don't think I want multiple cosmologies
+        for the MCMC.
         '''
-        chitab = odeint(dchioverdlna, np.zeros(np.shape(cosmo.h)), np.log(atab))
+        chitab = odeint(dchioverdlna, 0.0, np.log(atab))
         # np.clip(- 3000*np.log(atab), 0, 10000)#odeint(dchioverdlna, 0., np.log(atab), cosmo)
         chitab = chitab[-1] - chitab
 
@@ -360,12 +362,11 @@ def transverse_comoving_distance(cosmo, a):
     branches = (open_universe, flat_universe, close_universe)
 
     chi = radial_comoving_distance(cosmo, a)
-    '''
-    PH: Nov 26 2023: Replacing this, so it can cope with an array of values of cosmo.k:
+    #PH: Nov 26 2023: Replacing this, so it can cope with an array of values of cosmo.k:
+    #PH: Dec 21 2023: Reinstating this, as I don't need to be able to cope with such arrays any more:
     return lax.switch(cosmo.k + 1, branches, chi)
-    '''
     #print('func',np.where(cosmo.k==-1,open_universe(chi),np.where(cosmo.k==1,close_universe(chi),flat_universe(chi)))[0:10])
-    return np.where(cosmo.k==-1,open_universe(chi),np.where(cosmo.k==1,close_universe(chi),flat_universe(chi)))
+    #return np.where(cosmo.k==-1,open_universe(chi),np.where(cosmo.k==1,close_universe(chi),flat_universe(chi)))
 
 def angular_diameter_distance(cosmo, a):
     r"""Angular diameter distance in [Mpc/h] for a given scale factor.
@@ -391,8 +392,15 @@ def angular_diameter_distance(cosmo, a):
 #    print('SHAPE,cosmo',(a))
 #    print((transverse_comoving_distance(cosmo, a)))
 #    print('shapessss',np.shape(a[...,np.newaxis]),np.shape(np.squeeze(transverse_comoving_distance(cosmo, a),2)))
-    return a[...,np.newaxis]* np.squeeze(transverse_comoving_distance(cosmo, a),2) #Removing an axis
-
+    '''
+    PH 14 Dec 2023:
+    Replacing return function:
+    a[...,np.newaxis]* np.squeeze(transverse_comoving_distance(cosmo, a),2) #Removing an axis
+    with 
+    return a * transverse_comoving_distance(cosmo, a)
+    as I don't think I need to allow multiple cosmologies any more in the MCMC
+    '''
+    return a * transverse_comoving_distance(cosmo, a)
 
 def growth_factor(cosmo, a):
     """Compute linear growth factor D(a) at a given scale factor,
